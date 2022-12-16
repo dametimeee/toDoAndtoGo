@@ -10,7 +10,9 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  KeyboardAvoidingViewBase,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { Fontisto } from "@expo/vector-icons";
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -25,12 +27,16 @@ export default function App() {
   const [text, setText] = useState("");
   const [toDos, setToDos] = useState({});
   const [complete, setComplete] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [textKey, setTextKey] = useState("");
+  const [editedText, setEditedText] = useState("");
   useEffect(() => {
     loadToDos();
   }, []);
   useEffect(() => {
     loadHeader();
   }, []);
+  useEffect(() => {}, []);
 
   const loadHeader = async () => {
     const h = await AsyncStorage.getItem(STORAGE_HEADERLOAD_KEY);
@@ -41,14 +47,20 @@ export default function App() {
     setWorking(false);
     await AsyncStorage.setItem(STORAGE_HEADERLOAD_KEY, "false");
   };
+
   const work = async () => {
     setWorking(true);
     await AsyncStorage.setItem(STORAGE_HEADERLOAD_KEY, "true");
   };
+
   const onChangeText = (payload) => setText(payload);
+
+  const editText = (payload) => setEditedText(payload);
+
   const saveToDos = async (toSave) => {
     await AsyncStorage.setItem(STORAGE_CONTENT_KEY, JSON.stringify(toSave));
   };
+
   const loadToDos = async () => {
     const s = await AsyncStorage.getItem(STORAGE_CONTENT_KEY);
     s !== null ? setToDos(JSON.parse(s)) : null;
@@ -63,6 +75,7 @@ export default function App() {
     await saveToDos(newToDos);
     setText("");
   };
+
   const deleteToDo = (key) => {
     Alert.alert("Delete To Do", "Are you sure?", [
       { text: "Cancel" },
@@ -78,11 +91,36 @@ export default function App() {
       },
     ]);
   };
+
   const completeToDo = async (key) => {
     const newToDos = { ...toDos };
-    newToDos[key].complete = true;
+    !newToDos[key].complete
+      ? (newToDos[key].complete = true)
+      : (newToDos[key].complete = false);
     setToDos(newToDos);
     await saveToDos(newToDos);
+  };
+
+  const updateToDo = (key) => {
+    setIsEditing(true);
+    setTextKey(key);
+  };
+
+  const editToDo = async (key) => {
+    const newToDos = { ...toDos };
+    newToDos[textKey].text = editedText;
+    console.log(newToDos[textKey].text.trim.length);
+    if (newToDos[textKey].text == "") {
+      setEditedText("");
+      setIsEditing(false);
+      return;
+    } else {
+      newToDos[textKey].text = editedText;
+      setToDos(newToDos);
+      await saveToDos(newToDos);
+      setEditedText("");
+      setIsEditing(false);
+    }
   };
 
   return (
@@ -107,46 +145,81 @@ export default function App() {
           </Text>
         </TouchableOpacity>
       </View>
-      <View>
-        <TextInput
-          onSubmitEditing={addToDo}
-          onChangeText={onChangeText}
-          returnKeyType="done"
-          placeholder={working ? "Add a To Do" : "Where do you want to go?"}
-          value={text}
-          style={styles.input}
-        />
-      </View>
-      <ScrollView>
-        {Object.keys(toDos).map((key) =>
-          toDos[key].working === working ? (
-            <View style={styles.toDo} key={key}>
-              <Text
-                style={
-                  toDos[key].complete
-                    ? { ...styles.toDoText, textDecorationLine: "line-through" }
-                    : styles.toDoText
-                }
-              >
-                {toDos[key].text}
-              </Text>
-              <View style={styles.toDoIcon}>
-                <TouchableOpacity onPress={() => completeToDo(key)}>
-                  <Feather name="check" size={24} color={theme.grey} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => deleteToDo(key)}>
-                  <Fontisto
-                    name="trash"
-                    size={18}
-                    color={theme.grey}
-                    style={styles.toDoIconTrash}
-                  ></Fontisto>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : null
-        )}
-      </ScrollView>
+      {isEditing ? (
+        <View>
+          <View>
+            <TextInput
+              onSubmitEditing={editToDo}
+              onChangeText={editText}
+              returnKeyType="done"
+              placeholder={"Edit your text"}
+              value={editedText}
+              style={styles.input}
+            />
+          </View>
+          <View style={styles.toDo}>
+            <Text style={styles.toDoText}>{toDos[textKey].text}</Text>
+          </View>
+        </View>
+      ) : (
+        <View>
+          <View>
+            <TextInput
+              onSubmitEditing={addToDo}
+              onChangeText={onChangeText}
+              returnKeyType="done"
+              placeholder={working ? "Add a To Do" : "Where do you want to go?"}
+              value={text}
+              style={styles.input}
+            />
+          </View>
+          <ScrollView>
+            {Object.keys(toDos).map((key) =>
+              toDos[key].working === working ? (
+                <View style={styles.toDo} key={key}>
+                  <Text
+                    style={
+                      toDos[key].complete
+                        ? {
+                            ...styles.toDoText,
+                            textDecorationLine: "line-through",
+                          }
+                        : styles.toDoText
+                    }
+                  >
+                    {toDos[key].text}
+                  </Text>
+                  <View style={styles.toDoIcon}>
+                    <TouchableOpacity onPress={() => updateToDo(key)}>
+                      <Ionicons
+                        name="ios-pencil"
+                        size={24}
+                        color={theme.grey}
+                      />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => completeToDo(key)}>
+                      <Feather
+                        name="check"
+                        size={24}
+                        color={theme.grey}
+                        style={styles.toDoIconComplete}
+                      />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => deleteToDo(key)}>
+                      <Fontisto
+                        name="trash"
+                        size={18}
+                        color={theme.grey}
+                        style={styles.toDoIconTrash}
+                      ></Fontisto>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : null
+            )}
+          </ScrollView>
+        </View>
+      )}
     </View>
   );
 }
@@ -195,5 +268,8 @@ const styles = StyleSheet.create({
   },
   toDoIconTrash: {
     marginLeft: 10,
+  },
+  toDoIconComplete: {
+    marginLeft: 8,
   },
 });
