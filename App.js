@@ -109,18 +109,10 @@ export default function App() {
   const editToDo = async (key) => {
     const newToDos = { ...toDos };
     newToDos[textKey].text = editedText;
-    console.log(newToDos[textKey].text.trim.length);
-    if (newToDos[textKey].text == "") {
-      setEditedText("");
-      setIsEditing(false);
-      return;
-    } else {
-      newToDos[textKey].text = editedText;
-      setToDos(newToDos);
-      await saveToDos(newToDos);
-      setEditedText("");
-      setIsEditing(false);
-    }
+    setToDos(newToDos);
+    await saveToDos(newToDos);
+    setEditedText("");
+    setIsEditing(false);
   };
 
   return (
